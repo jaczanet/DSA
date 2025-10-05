@@ -1,10 +1,42 @@
-from __future__ import annotations
-
-
-from functools import wraps, total_ordering
 from copy import copy as shallowcopy
+from functools import wraps
 
 from node import Node
+
+
+def lexicographicalminimum(method):
+
+    # This is a factory function (see "python closures/decorators")
+    # to retain shared logic between __lt__ and __le__.
+
+    # __lt__ and __le__ compare the lists element-wise using the same
+    # logic until one is exhausted. If all compared elements are equal
+    # the list lengths are compared to determine the final truth value.
+
+    if (methodname := method.__name__) != '__lt__' and methodname != '__le__':
+        raise ValueError(f"method '{methodname}' is not '__lt__' or '__le__'")
+
+    lengthscomparator = getattr(int, methodname)
+
+    # A dedicated implementation for __le__ is more efficient than
+    # combining __lt__ and __eq__ method calls. In the worst case,
+    # T(n) to compute __le__ := (__lt__ or __eq__) would be ~ 2*n.
+    # A dedicated implementation keeps T(n) ~ n in the worst case.
+
+    @wraps(method)
+    def wrapper(self, other):
+
+        # lexicographical comparison
+        for x, y in zip(self, other):
+            if x < y:
+                return True
+            if x > y:
+                return False
+
+        # fallback to lengths comparison
+        return lengthscomparator(len(self), len(other))
+
+    return wrapper
 
 
 def _updatelength(diff=0, *, reset=False):
@@ -23,9 +55,13 @@ def _updatelength(diff=0, *, reset=False):
     return decorator
 
 
-@total_ordering
 class linkedlist:
-    """Singly linked list (mutable sequence)."""
+    """
+    Singly linked list: mutable sequence.
+
+    If no argument is given, the constructor creates a new empty list.
+    The argument must be an iterable if specified.
+    """
 
     __slots__ = ('_head', '_tail', '_length')
     __hash__ = None
@@ -59,88 +95,109 @@ class linkedlist:
         # finally build the list
         self.extend(iterable)
 
-    def __str__(self, /) -> str:
-        return ' -> '.join(str(value) for value in self)
-
-    ## Iterable
-
     def __iter__(self, /):
+        """Implement iter(self)."""
         for node in self._iternodes():
             yield node.value
 
-    def _iternodes(self, /):
-        node = self._head
-        while node is not self._tail:
-            yield node
-            node = node.next
-
-    ## Sequence
-
-    def __len__(self, /) -> int:
+    def __len__(self, /):
+        """Return len(self)."""
         return self._length
 
-    def __getitem__(self, index: int, /) -> int:
+    def __getitem__(self, index, /):
+        """Return self[index]."""
         return self._getnode(index).value
 
-    def _getnode(self, index: int, /) -> Node:
-        index = self._parseindex(index)
+    def __setitem__(self, index, value, /):
+        """Set self[index] to value."""
+        self._getnode(index).value = value
 
-        for i, node in enumerate(self._iternodes()):
-            if i == index:
-                return node
+    def __delitem__(self, index, /):
+        """Delete self[index]."""
+        self.pop(index)
 
-    def index(self, /, value, start: int = 0, stop: int = None) -> int:
-        if stop is None:
-            stop = len(self)
+    def __repr__(self, /):
+        """Return repr(self)."""
+        return f"linkedlist(({', '.join(repr(value) for value in self)}))"
 
-        for index, elem in enumerate(self):
-            if index < start:
-                continue
-            if index >= stop:
-                break
-            if elem == value:
-                return index
-        else:
-            raise ValueError(f"{value!r} is not in list")
+    def __str__(self, /):
+        """Return str(self)."""
+        return ' -> '.join(str(value) for value in self)
 
-    def count(self, value, /) -> int:
-        count = 0
-        for elem in self:
-            if elem == value:
-                count += 1
-        return count
+    def __eq__(self, other, /):
+        """Return self == value."""
+        if len(self) == len(other):
+            for x, y in zip(self, other):
+                if x != y:
+                    break
+            else:
+                return True
+        return False
 
-    def copy(self, /) -> 'linkedlist':
-        # shallow copy
-        return linkedlist(self)
+    def __ne__(self, other, /):
+        """Return self != value."""
+        return not self == other
 
-    def __reversed__(self, /) -> 'linkedlist':
+    @lexicographicalminimum
+    def __lt__(self, other, /):
+        """Return self < value."""
+
+    @lexicographicalminimum
+    def __le__(self, other, /):
+        """Return self <= value."""
+
+    def __gt__(self, other, /):
+        """Return self > value."""
+        return not self <= other
+
+    def __ge__(self, other, /):
+        """Return self >= value."""
+        return not self < other
+
+    def __add__(self, other, /):
+        """Return self + other."""
         newlist = self.copy()
-        newlist.reverse()
+        newlist += other
         return newlist
 
-    ## Mutable
+    def __iadd__(self, other, /):
+        """Implement self += other."""
+        if not isinstance(other, t := type(self)):
+            raise TypeError(
+                f'can only concatenate {t.__name__} (not "{type(other).__name__}") to {t.__name__}'
+            )
+        self.extend(other)
+        return self
 
-    # adding elements
+    def __mul__(self, number, /):
+        """Return self * number."""
+        newlist = self.copy()
+        newlist *= number
+        return newlist
 
-    @_updatelength(+1)
-    def append(self, value, /) -> None:
-        self._tail.value = value
+    def __rmul__(self, number, /):
+        """Return number * self."""
+        return self * number
 
-        # New tail
-        self._tail.next = self._tail = Node(None)
+    def __imul__(self, number, /):
+        """Implement self *= number."""
+        oglist = self.copy()
+        for _ in range(number - 1):
+            self += oglist
+        return self
 
-    @_updatelength(diff=0)  # diff=0 because is calling self.append(value)
-    def extend(self, iterable, /) -> None:
-        for value in iterable:
-            self.append(value)
+    def __reversed__(self, /):
+        """Return a reverse iterator over the list."""
+        newlist = self.copy()
+        newlist.reverse()
+        return iter(newlist)
 
-    # @_updatelength(+1) not possible to use due to recursive calls
-    def insert(self, index: int, value, /) -> None:
+    def insert(self, /, index, value):
+        """Insert value before index."""
         try:
             node = self._getnode(index)
         except IndexError:
-            # repoducing python built-in `list` behaviour
+            # Repoducing behaviour of the built-in python `list`
             if index >= len(self):
                 self.append(value)
             else:
@@ -150,42 +207,43 @@ class linkedlist:
             node.value = value
             self._length += 1
 
-    # subtracting elements
+    @_updatelength(+1)
+    def append(self, value, /):
+        """Append value to the end of the list."""
+        self._tail.value = value
 
-    @_updatelength(-1)
-    def __delnode(self, node: Node, /) -> None:
-        if (nextnode := node.next) is self._tail:
-            self._tail = node
+        # New tail
+        self._tail.next = self._tail = Node(None)
 
-        node.value = nextnode.value
-        node.next = nextnode.next
+    def extend(self, iterable, /):
+        """Extend list by appending elements from the iterable."""
+        for value in shallowcopy(iterable):
+            self.append(value)
 
-    @_updatelength(diff=0)  # diff=0 because is calling self.__delnode(node)
-    def pop(self, index: int = -1, /) -> 'value':
+    def pop(self, index=-1, /):
+        """Remove and return item at index (default last)."""
         node = self._getnode(index)
         oldvalue = node.value
-        self.__delnode(node)
+        self._ejectnode(node)
         return oldvalue
 
-    @_updatelength(diff=0)  # diff=0 because is calling self.__delnode(node)
-    def remove(self, value, /) -> None:
+    def remove(self, value, /):
+        """Remove first occurrence of value."""
         for node in self._iternodes():
             if node.value == value:
-                self.__delnode(node)
+                self._ejectnode(node)
                 break
         else:
             raise ValueError("linkedlist.remove(x): x not in list")
 
     @_updatelength(reset=True)
-    def clear(self, /) -> None:
+    def clear(self, /):
+        """Remove all items from list."""
         self._head = self._tail
 
-    # updating in place: i.e. preserving len(self)
+    def reverse(self, /):
+        """Reverse *IN PLACE*."""
 
-    def __setitem__(self, index: int, value, /) -> None:
-        self._getnode(index).value = value
-
-    def reverse(self, /) -> None:
         newtail = prev = Node(None)
 
         curr = self._head
@@ -198,7 +256,9 @@ class linkedlist:
         self._head = prev
         self._tail = newtail
 
-    def swap(self, i: int, j: int, /) -> None:
+    def swap(self, i, j, /):
+        """Swap elements at indices 'i' and 'j' in the list."""
+
         # More efficient than: self[i], self[j] = self[j], self[i]
         # swaps values with only one pass over the list (instead of four)
 
@@ -216,81 +276,110 @@ class linkedlist:
 
         node_i.value, node_j.value = node_j.value, node_i.value
 
-    def isort(self, /):
-        # insertion sort revisited for single linked list:
-        # it is only possible to traverse the list in one direction
+    def isort(self, /, *, key=None, reverse=False):
+        """
+        Sort the list in ascending order and return None.
+
+        The sort is in-place (i.e. the list itself is modified) and stable (i.e. the
+        order of two equal elements is maintained).
+
+        If a key function is given, apply it once to each list item and sort them,
+        ascending or descending, according to their function values.
+
+        The reverse flag can be set to sort in descending order.
+        """
+
+        if not key:
+            key = lambda value: value
+
+        # Due to the nature of insertion sort algorithm, key(value) for
+        # each value is computed over and over if not cached.
+
+        # implement memoization
+        cache = {}
+
+        def _key(value):
+            # use 'id(value)' istead of 'value' itself to support caching of unhashable types
+            if (t := id(value)) not in cache:
+                cache[t] = key(value)
+            return cache[t]
+
+        # Insertion sort algorithm revisited for single linked list:
+        # it is only possible to traverse the list in one direction.
 
         for node_i in self._iternodes():
             for node_j in self._iternodes():
                 if node_j is node_i:
                     break
-                if node_j.value > node_i.value:
+                if _key(node_j.value) > _key(node_i.value):
                     node_i.value, node_j.value = node_j.value, node_i.value
 
-    ## Comparison operator methods
+        if reverse:
+            self.reverse()
 
-    def __eq__(self, other):
-        """Return self==value."""
+    def index(self, /, value, start=0, stop: int = None):
+        """Return first index of value."""
+        if stop is None:
+            stop = len(self)
 
-        if len(self) == len(other):
-            for x, y in zip(self, other):
-                if x != y:
-                    break
-            else:
-                return True
+        for index, elem in enumerate(self):
+            if index < start:
+                continue
+            if index >= stop:
+                break
+            if elem == value:
+                return index
+        else:
+            raise ValueError(f"{value!r} is not in list")
 
-        return False
+    def count(self, value, /):
+        """Return number of occurrences of value."""
+        count = 0
+        for elem in self:
+            if elem == value:
+                count += 1
+        return count
 
-    def __ne__(self, other):
-        """Return self!=value."""
-        return not self == other
+    def copy(self, /):
+        """Return a shallow copy of the list."""
+        return linkedlist(self)
 
-    def __lt__(self, other):
-        """Return self<value."""
+    def _iternodes(self, /):
+        node = self._head
+        while node is not self._tail:
+            yield node
+            node = node.next
 
-        for x, y in zip(self, other):
-            if x < y:
-                return True
-            if x > y:
-                return False
-
-        return len(self) < len(other)
-
-    def __le__(self, other):
-        """Return self<=value."""
-
-        for x, y in zip(self, other):
-            if x < y:
-                return True
-            if x > y:
-                return False
-
-        return len(self) <= len(other)
-
-    def __gt__(self, other):
-        """Return self>value."""
-        return not self <= other
-
-    def __ge__(self, other):
-        """Return self>=value."""
-        return not self < other
-
-    # Auxiliary methods
-
-    def _parseindex(self, index: int) -> int:
+    def _parseindex(self, index, /) -> int:
         listlength = len(self)
 
+        # Check type(index)
         if not isinstance(index, int):
             raise TypeError(
                 f"list indices must be integers, not {type(index).__name__}"
             )
 
-        # Parse reverse (negative) indexing
+        # Parse negative indexing
         if index < 0:
             index += listlength
 
         # Check index is within bounds
-        if not 0 <= index <= listlength - 1:
+        if not 0 <= index <= listlength - 1:  # if index not in range(listlength)
             raise IndexError('list index out of range')
 
         return index
+
+    def _getnode(self, index, /) -> Node:
+        index = self._parseindex(index)
+
+        for i, node in enumerate(self._iternodes()):
+            if i == index:
+                return node
+
+    @_updatelength(-1)
+    def _ejectnode(self, node: Node, /):
+        if (nextnode := node.next) is self._tail:
+            self._tail = node
+
+        node.value = nextnode.value
+        node.next = nextnode.next
