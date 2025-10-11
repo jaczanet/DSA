@@ -61,7 +61,7 @@ class Node:
                 maxnode.eject()
 
 
-# Binary search tree
+# Binary Search Tree
 
 
 class bst:

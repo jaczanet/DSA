@@ -1,13 +1,26 @@
+from __future__ import annotations
+
 from copy import copy as shallowcopy
+from dataclasses import dataclass
 from functools import wraps
 
-from node import Node
+
+# Node
+
+
+@dataclass(slots=True)
+class Node:
+    value: object
+    next: Node = None
+
+
+# Linked list
 
 
 def lexicographicalminimum(method):
 
     # This is a factory function (see "python closures/decorators")
-    # to retain shared logic between __lt__ and __le__.
+    # to retain logic shared between __lt__ and __le__.
 
     # __lt__ and __le__ compare the lists element-wise using the same
     # logic until one is exhausted. If all compared elements are equal
@@ -163,9 +176,7 @@ class linkedlist:
     def __iadd__(self, other, /):
         """Implement self += other."""
         if not isinstance(other, t := type(self)):
-            raise TypeError(
-                f'can only concatenate {t.__name__} (not "{type(other).__name__}") to {t.__name__}'
-            )
+            raise TypeError(f'can only concatenate {t.__name__} (not "{type(other).__name__}") to {t.__name__}')
         self.extend(other)
         return self
 
@@ -355,9 +366,7 @@ class linkedlist:
 
         # Check type(index)
         if not isinstance(index, int):
-            raise TypeError(
-                f"list indices must be integers, not {type(index).__name__}"
-            )
+            raise TypeError(f"list indices must be integers, not {type(index).__name__}")
 
         # Parse negative indexing
         if index < 0:
