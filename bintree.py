@@ -1,32 +1,23 @@
-from __future__ import annotations
-
 from dataclasses import dataclass
+
+from sentinel import SENTINEL
 
 
 # Node
-
-
-class _SENTINEL_TYPE:
-    # Inspired by the implementation of dataclasses._MISSING_TYPE.
-    pass
-
-
-SENTINEL = _SENTINEL_TYPE()
-
-
 @dataclass(slots=True, match_args=True)
 class Node:
-    """Binary Search Tree node implementation."""
+    """Binary-Search-Tree node implementation."""
 
     key: object
-    left: Node = None
-    right: Node = None
+    left: 'Node' = None
+    right: 'Node' = None
 
     @property
     def _issentinel(self, /) -> bool:
-        return self._key is SENTINEL and self.left is None and self.right is None
+        return self.key is SENTINEL
 
     def __bool__(self, /):
+        """Return bool(self)."""
         return not self._issentinel
 
     def substitute(self, other, /):
@@ -36,45 +27,42 @@ class Node:
 
     def eject(self, /):
         """Remove self from the binary search tree while preserving BST properties."""
+        left = self.left
+        right = self.right
 
-        # 1st case: zero descendants
+        # 1st case: two descendants
+        if left and right:
+            # substitute with maximum of the left branch (or minimum of the right branch)
+            maxnode = left
+            while right := maxnode.right:
+                maxnode = right
+            self.key = maxnode.key
+            maxnode.eject()
+
         # 2nd case: one descendant
-        # 3rd case: two descendants
+        elif (descendant := left) or (descendant := right):  # leveraging short-circuiting
+            # replace the ancestor with its descendant
+            self.substitute(descendant)
 
-        # Structural pattern matching (PEP 634)
-        match self:
-
-            case Node(_, Node(SentinelType()), Node(SentinelType())):
-                # turn the (leaf) node into a sentinel node
-                self.substitute(Node(SENTINEL))
-
-            case Node(_, descendant, Node(SentinelType())) | Node(_, Node(SentinelType()), descendant):
-                # replace the ancestor with its descendant
-                self.substitute(descendant)
-
-            case Node(_, left, right):
-                # substitute with maximum of the left branch (or minimum of the right branch)
-                maxnode = left
-                while right := maxnode.right:
-                    maxnode = right
-                self.key = maxnode.key
-                maxnode.eject()
+        # 3rd case: zero descendants
+        else:
+            # turn the (leaf) node into a sentinel node
+            self.substitute(Node(SENTINEL))
 
 
 # Binary Search Tree
-
-
 class bst:
+    """Binary Search Tree implementation."""
 
     __slots__ = ('_root',)
     __hash__ = None
 
-    def __init__(self, rootnode=Node(SENTINEL), /):
-        self._root = rootnode
+    def __init__(self, /):
+        self._root = Node(SENTINEL)
 
     @property
     def root(self, /) -> Node:
-        # Public getter to expose a starting point for traversal methods.
+        # Public getter exposing an entry point for traversal methods.
         return self._root
 
     def _binarysearch(self, key, /) -> Node:
@@ -117,7 +105,7 @@ class bst:
         if node:
             node.eject()
         else:
-            raise ValueError(f'bst.remove({key}): {key} not in tree')
+            raise ValueError(f'{type(self).__name__}.remove({key}): {key} not in tree')
 
     def search(self, key, /) -> bool:
         """Returns True if key is in self, False otherwise."""
@@ -127,11 +115,36 @@ class bst:
         else:
             return False
 
-    def __contains__(self, key):
+    def __contains__(self, key, /):
+        """Return bool(key in self)."""
         return self.search(key)
 
 
 # Traversals
+
+
+def breadthfirst(tree: bst, /):
+    queue = [tree.root]
+    while queue:
+        node = queue.pop(0)
+        if node:
+            yield node.key
+            queue.append(node.left)
+            queue.append(node.right)
+
+
+def depthfirst(tree: bst, /):
+    stack = [tree.root]
+    while stack:
+        node = stack.pop()
+        if node:
+            yield node.key
+            stack.append(node.right)
+            stack.append(node.left)
+
+
+# Preorder and Depth-First traversals are equivalent in result. But here,
+# both are implemented as per their definitions for learning's sake.
 
 
 def preorder(tree: bst, /):
@@ -164,23 +177,23 @@ def postorder(tree: bst, /):
     yield from _postorder(tree.root)
 
 
-def breadthfirst(tree: bst, /):
-    queue = [tree.root]
-    while queue:
-        node = queue.pop(0)
-        if node:
-            yield node.key
-            queue.append(node.left)
-            queue.append(node.right)
+if __name__ == '__main__':
 
+    keys = (9, 4, 10, 3, 6, 11, 2, 5, 7)
 
-# Preorder and Depth First Search are equivalent in result. But here,
-# both are implemented as per their definitions for learning's sake.
-def depthfirst(tree: bst, /):
-    stack = [tree.root]
-    while stack:
-        node = stack.pop()
-        if node:
-            yield node.key
-            stack.append(node.right)
-            stack.append(node.left)
+    tree = bst()
+
+    for key in keys:
+        tree.insert(key)
+
+    print(*breadthfirst(tree), ': breadthfirst')
+    print(*depthfirst(tree), ': depthfirst')
+    print(*preorder(tree), ': preorder')
+    print(*inorder(tree), ': inorder')
+    print(*postorder(tree), ': postorder')
+
+    print(f'{1 in tree=}')
+    print(f'{10 in tree=}')
+
+    tree.remove(10)
+    print(f'{10 in tree=}')
