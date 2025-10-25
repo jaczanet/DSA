@@ -5,6 +5,7 @@ class TombstoneType:
 
     __slots__ = ()
     _instance = None
+    __hash__= ??
 
     def __new__(cls):
         if cls._instance is None:

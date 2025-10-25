@@ -392,3 +392,11 @@ class linkedlist:
 
         node.value = nextnode.value
         node.next = nextnode.next
+
+
+if __name__ == "__main__":
+    pass
+
+    c = linkedlist()
+    c *= 3.1
+    print(c, 'check')
