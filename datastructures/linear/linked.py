@@ -68,7 +68,7 @@ def _updatelength(diff=0, *, reset=False):
     return decorator
 
 
-class linkedlist:
+class LinkedList:
     """
     Singly linked list: mutable sequence.
 
@@ -131,7 +131,7 @@ class linkedlist:
 
     def __repr__(self, /):
         """Return repr(self)."""
-        return f"linkedlist(({', '.join(repr(value) for value in self)}))"
+        return f"LinkedList(({', '.join(repr(value) for value in self)}))"
 
     def __str__(self, /):
         """Return str(self)."""
@@ -245,7 +245,7 @@ class linkedlist:
                 self._ejectnode(node)
                 break
         else:
-            raise ValueError("linkedlist.remove(x): x not in list")
+            raise ValueError("LinkedList.remove(x): x not in list")
 
     @_updatelength(reset=True)
     def clear(self, /):
@@ -353,7 +353,7 @@ class linkedlist:
 
     def copy(self, /):
         """Return a shallow copy of the list."""
-        return linkedlist(self)
+        return LinkedList(self)
 
     def _iternodes(self, /):
         node = self._head
@@ -396,7 +396,3 @@ class linkedlist:
 
 if __name__ == "__main__":
     pass
-
-    c = linkedlist()
-    c *= 3.1
-    print(c, 'check')
