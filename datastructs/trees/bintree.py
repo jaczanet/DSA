@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-from sentinel import SENTINEL
+from .sentinel import SENTINEL
 
 
 # Node
